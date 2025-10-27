@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hungarian Road Network Map</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+        }
+
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            left: 60px;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 400;
+            max-width: 250px;
+        }
+
+        .info-panel h2 {
+            margin: 0 0 5px 0;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .info-panel p {
+            margin: 3px 0;
+            font-size: 11px;
+            color: #666;
+        }
+
+        /* Make Leaflet layer control more visible */
+        .leaflet-control-layers {
+            background: white !important;
+            padding: 10px !important;
+            border-radius: 8px !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3) !important;
+            font-size: 14px !important;
+        }
+
+        .leaflet-control-layers-expanded {
+            padding: 15px !important;
+        }
+
+        .search-box {
+            position: absolute;
+            top: 110px;
+            left: 60px;
+            z-index: 1000;
+        }
+
+        .search-box input {
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 300px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 150px;
+            left: 60px;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            max-height: 400px;
+            overflow-y: auto;
+            width: 300px;
+            z-index: 1000;
+            display: none;
+        }
+
+        .search-result-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+
+        .search-result-item:hover {
+            background: #f5f5f5;
+        }
+
+        .search-result-item strong {
+            display: block;
+            color: #333;
+            margin-bottom: 3px;
+        }
+
+        .search-result-item small {
+            color: #999;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            right: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        .legend h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .legend-item {
+            margin: 5px 0;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+        }
+
+        .legend-color {
+            width: 30px;
+            height: 3px;
+            margin-right: 8px;
+            border-radius: 2px;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,255,255,0.95);
+            padding: 20px 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 2000;
+            display: none;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4CAF50;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <div class="info-panel">
+        <h2>🇭🇺 Hungarian Road Network</h2>
+        <p><strong>Data Source:</strong> Magyar Közút</p>
+        <p><strong>Format:</strong> DATEX II</p>
+        <p id="viewport-info">Zoom in to load data...</p>
+    </div>
+
+    <div class="search-box">
+        <input type="text" id="search-input" placeholder="Search locations..." />
+    </div>
+
+    <div class="search-results" id="search-results"></div>
+
+    <div class="legend">
+        <h4>All Point Types</h4>
+        <div style="max-height: 400px; overflow-y: auto;">
+            <strong style="font-size: 11px; color: #666;">MOTORWAY (581)</strong>
+            <div class="legend-item"><span style="margin-right: 5px;">🔷</span><span style="font-size: 12px;">Motorway Junction</span></div>
+            <div class="legend-item"><span style="margin-right: 5px;">⚡</span><span style="font-size: 12px;">Motorway Intersection</span></div>
+            <div class="legend-item"><span style="margin-right: 5px;">🔺</span><span style="font-size: 12px;">Motorway Triangle</span></div>
+
+            <strong style="font-size: 11px; color: #666; margin-top: 8px; display: block;">JUNCTIONS (11,370)</strong>
+            <div class="legend-item"><span style="margin-right: 5px;">⊤</span><span style="font-size: 12px;">T-Junction (7,381)</span></div>
+            <div class="legend-item"><span style="margin-right: 5px;">➕</span><span style="font-size: 12px;">Crossroads (2,684)</span></div>
+            <div class="legend-item"><span style="margin-right: 5px;">↗️</span><span style="font-size: 12px;">Link Road Point (1,877)</span></div>
+            <div class="legend-item"><span style="margin-right: 5px;">⭕</span><span style="font-size: 12px;">Roundabout (499)</span></div>
+            <div class="legend-item"><span style="margin-right: 5px;">🔄</span><span style="font-size: 12px;">Gyratory (793)</span></div>
+
+            <strong style="font-size: 11px; color: #666; margin-top: 8px; display: block;">INFRASTRUCTURE</strong>
+            <div class="legend-item"><span style="margin-right: 5px;">🌉</span><span style="font-size: 12px;">Bridge (8)</span></div>
+            <div class="legend-item"><span style="margin-right: 5px;">🚇</span><span style="font-size: 12px;">Tunnel (1)</span></div>
+            <div class="legend-item"><span style="margin-right: 5px;">🚂</span><span style="font-size: 12px;">Railroad Crossing (5)</span></div>
+
+            <strong style="font-size: 11px; color: #666; margin-top: 8px; display: block;">SERVICES & FACILITIES</strong>
+            <div class="legend-item"><span style="margin-right: 5px;">⛽</span><span style="font-size: 12px;">Rest Area (110)</span></div>
+            <div class="legend-item"><span style="margin-right: 5px;">🍴</span><span style="font-size: 12px;">Service Area (2)</span></div>
+            <div class="legend-item"><span style="margin-right: 5px;">⛴️</span><span style="font-size: 12px;">Ferry Terminal (99)</span></div>
+            <div class="legend-item"><span style="margin-right: 5px;">🚧</span><span style="font-size: 12px;">Border Crossing (71)</span></div>
+        </div>
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; font-size: 11px; color: #666;">
+            Use layer control (top right) to toggle categories
+        </div>
+    </div>
+
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div>Loading data...</div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([{{ center_lat }}, {{ center_lon }}], 8);
+
+        // Add base layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Layer groups - organized by category
+        const pointLayers = {
+            motorwayPoints: L.layerGroup().addTo(map),
+            junctions: L.layerGroup().addTo(map),
+            infrastructure: L.layerGroup().addTo(map),
+            services: L.layerGroup().addTo(map),
+            other: L.layerGroup().addTo(map)
+        };
+
+        // Road colors
+        const roadColors = {
+            1: '#E53935',  // Motorway - Red
+            2: '#FB8C00',  // 1st class - Orange
+            3: '#FDD835',  // 2nd class - Yellow
+            4: '#43A047'   // 3rd class - Green
+        };
+
+        const roadWeights = {
+            1: 4,
+            2: 3,
+            3: 2,
+            4: 2
+        };
+
+        // Icon mapping - complete list with categories
+        const pointIcons = {
+            // Motorway features
+            'motorway junction': '🔷',
+            'motorway intersection': '⚡',
+            'motorway triangle': '🔺',
+            'motorway entrance': '➡️',
+            'exit': '🔻',
+
+            // Junctions & intersections
+            't-junction': '⊤',
+            'cross-roads': '➕',
+            'roundabout': '⭕',
+            'gyratory': '🔄',
+            'link road point': '↗️',
+            'intermediate node': '⚫',
+
+            // Infrastructure
+            'bridge': '🌉',
+            'tunnel': '🚇',
+            'flyover': '🛤️',
+            'underpass': '⬇️',
+            'railroad crossing': '🚂',
+
+            // Services & facilities
+            'rest area': '⛽',
+            'service area': '🍴',
+            'ferry': '⛴️',
+            'ferry terminal': '⛴️',
+            'border/frontier': '🚧',
+            'customs post': '🛃',
+
+            // Points of interest
+            'tourist attraction': '🎯',
+            'place name': '📍',
+            'church': '⛪',
+            'airport': '✈️',
+            'station': '🚉',
+
+            // Road markers
+            'beginning of parallel road': '▶️',
+            'end of parallel road': '◀️',
+            'distance marker': '📏',
+            'traffic monitoring station': '📹',
+        };
+
+        // Category mapping for layer organization
+        const pointCategories = {
+            'motorway junction': 'motorwayPoints',
+            'motorway intersection': 'motorwayPoints',
+            'motorway triangle': 'motorwayPoints',
+            'motorway entrance': 'motorwayPoints',
+            'exit': 'motorwayPoints',
+
+            't-junction': 'junctions',
+            'cross-roads': 'junctions',
+            'roundabout': 'junctions',
+            'gyratory': 'junctions',
+            'link road point': 'junctions',
+            'intermediate node': 'junctions',
+
+            'bridge': 'infrastructure',
+            'tunnel': 'infrastructure',
+            'flyover': 'infrastructure',
+            'underpass': 'infrastructure',
+            'railroad crossing': 'infrastructure',
+            'beginning of parallel road': 'infrastructure',
+            'end of parallel road': 'infrastructure',
+
+            'rest area': 'services',
+            'service area': 'services',
+            'ferry': 'services',
+            'ferry terminal': 'services',
+            'border/frontier': 'services',
+            'customs post': 'services',
+
+            'tourist attraction': 'other',
+            'place name': 'other',
+            'church': 'other',
+            'airport': 'other',
+            'station': 'other',
+            'distance marker': 'other',
+            'traffic monitoring station': 'other',
+        };
+
+        // Loading state
+        let isLoading = false;
+        let loadTimeout = null;
+
+        // Load data for current viewport
+        async function loadData() {
+            if (isLoading) return;
+
+            const zoom = map.getZoom();
+            if (zoom < 9) {
+                document.getElementById('viewport-info').textContent = 'Zoom in to load data...';
+                return;
+            }
+
+            const bounds = map.getBounds();
+            const bbox = {
+                west: bounds.getWest(),
+                south: bounds.getSouth(),
+                east: bounds.getEast(),
+                north: bounds.getNorth()
+            };
+
+            isLoading = true;
+            document.getElementById('loading').classList.add('active');
+
+            try {
+                // Load points (roads are disabled - see note in drawing section)
+                const pointsResponse = await fetch(
+                    `/api/points?west=${bbox.west}&south=${bbox.south}&east=${bbox.east}&north=${bbox.north}`
+                );
+                const pointsData = await pointsResponse.json();
+
+                // Clear existing layers
+                Object.values(pointLayers).forEach(layer => layer.clearLayers());
+
+                // Note: Road lines are disabled because DATEX II data contains points
+                // (junctions, intersections) but not complete road geometry.
+                // The data shows individual points along roads, not the full road paths.
+                // To properly display roads, you would need to use OpenStreetMap data
+                // or reconstruct road geometry from the point sequences.
+
+                // Draw points with category-based layers
+                pointsData.features.forEach(point => {
+                    const pointType = point.point_type?.toLowerCase();
+                    const icon = pointIcons[pointType] || '📍';
+                    const category = pointCategories[pointType] || 'other';
+
+                    const marker = L.marker([point.lat, point.lon], {
+                        icon: L.divIcon({
+                            html: `<span style="font-size: 20px;">${icon}</span>`,
+                            className: 'custom-icon',
+                            iconSize: [25, 25]
+                        })
+                    });
+
+                    marker.bindPopup(`
+                        <strong>${point.name || point.point_type || 'Point'}</strong><br>
+                        Type: ${point.point_type || 'Unknown'}<br>
+                        ${point.junction_number ? `Junction: ${point.junction_number}<br>` : ''}
+                        ${point.urban ? 'Urban area' : ''}
+                    `);
+
+                    // Add to appropriate layer
+                    if (pointLayers[category]) {
+                        pointLayers[category].addLayer(marker);
+                    }
+                });
+
+                document.getElementById('viewport-info').innerHTML =
+                    `<strong>${pointsData.count}</strong> points loaded`;
+
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.getElementById('viewport-info').textContent = 'Error loading data';
+            } finally {
+                isLoading = false;
+                document.getElementById('loading').classList.remove('active');
+            }
+        }
+
+        // Debounced load on map move
+        map.on('moveend', () => {
+            clearTimeout(loadTimeout);
+            loadTimeout = setTimeout(loadData, 500);
+        });
+
+        // Search functionality
+        const searchInput = document.getElementById('search-input');
+        const searchResults = document.getElementById('search-results');
+        let searchTimeout = null;
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.trim();
+
+            clearTimeout(searchTimeout);
+
+            if (query.length < 2) {
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&limit=20`);
+                    const data = await response.json();
+
+                    if (data.count > 0) {
+                        searchResults.innerHTML = data.results.map(result => `
+                            <div class="search-result-item" onclick="goToLocation(${result.lat}, ${result.lon})">
+                                <strong>${result.name}</strong>
+                                <small>${result.type || ''}</small>
+                            </div>
+                        `).join('');
+                        searchResults.style.display = 'block';
+                    } else {
+                        searchResults.innerHTML = '<div class="search-result-item">No results found</div>';
+                        searchResults.style.display = 'block';
+                    }
+                } catch (error) {
+                    console.error('Search error:', error);
+                }
+            }, 300);
+        });
+
+        function goToLocation(lat, lon) {
+            map.setView([lat, lon], 14);
+            searchResults.style.display = 'none';
+            searchInput.value = '';
+        }
+
+        // Close search results when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-box') && !e.target.closest('.search-results')) {
+                searchResults.style.display = 'none';
+            }
+        });
+
+        // Add layer control with categories - positioned at topright, always expanded
+        const overlays = {
+            "🔷 Motorway Points": pointLayers.motorwayPoints,
+            "➕ Junctions & Intersections": pointLayers.junctions,
+            "🌉 Infrastructure": pointLayers.infrastructure,
+            "⛽ Services & Facilities": pointLayers.services,
+            "📍 Other Points": pointLayers.other
+        };
+
+        const layerControl = L.control.layers(null, overlays, {
+            collapsed: false,
+            position: 'topright'
+        });
+        layerControl.addTo(map);
+
+        // Add explanation note
+        const infoControl = L.control({position: 'bottomleft'});
+        infoControl.onAdd = function() {
+            const div = L.DomUtil.create('div', 'info-note');
+            div.innerHTML = '<small style="background: white; padding: 5px; border-radius: 3px; box-shadow: 0 1px 5px rgba(0,0,0,0.2); display: block;"><strong>Note:</strong> This data shows points (junctions, intersections) from Magyar Közút.<br>Road lines are not included in DATEX II point data.</small>';
+            return div;
+        };
+        infoControl.addTo(map);
+
+        // Initial load
+        setTimeout(loadData, 1000);
+    </script>
+</body>
+</html>
