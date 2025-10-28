@@ -3,7 +3,7 @@
 ## One Command Setup
 
 ```bash
-docker compose up --build
+docker compose up
 ```
 
 That's it! Wait 30-60 seconds for first-time setup, then visit **http://localhost:8000**
@@ -94,7 +94,7 @@ curl http://localhost:8000/api/stats
 ### "Database not found" error keeps appearing
 **Solution**:
 1. Check data files exist: `ls data/*.DAT`
-2. Rebuild: `docker compose down -v && docker compose up --build`
+2. Rebuild: `docker compose down -v && docker compose up`
 
 ### Slow parsing
 **Solution**: This is normal on first run! Creating 14,475 spatial points takes time.

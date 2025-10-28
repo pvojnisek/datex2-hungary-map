@@ -18,8 +18,7 @@ venv
 .idea
 *.log
 .DS_Store
-road_network.duckdb
-road_network.duckdb.wal
+db/
 *.tmp
 .pytest_cache
 htmlcov

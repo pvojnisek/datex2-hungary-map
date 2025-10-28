@@ -8,11 +8,11 @@ services:
       - "8000:8000"
     volumes:
       - ./data:/app/data:ro
-      - ./road_network.duckdb:/app/road_network.duckdb
+      - ./db:/app/db
       - ./backend:/app/backend
       - ./frontend:/app/frontend
     environment:
-      - DUCKDB_PATH=/app/road_network.duckdb
+      - DUCKDB_PATH=/app/db/road_network.duckdb
       - DATA_PATH=/app/data
       - LOG_LEVEL=info
     restart: unless-stopped

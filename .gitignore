@@ -27,8 +27,7 @@ ENV/
 env/
 
 # DuckDB
-*.duckdb
-*.duckdb.wal
+db/
 
 # IDEs
 .vscode/

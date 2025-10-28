@@ -67,8 +67,8 @@ Think of it like a **catalog of important landmarks** on the road network rather
 ### Option 1: Docker (Recommended)
 
 ```bash
-# 1. Build and start the application
-docker compose up --build
+# 1. Start the application
+docker compose up
 
 # 2. Wait for the data parsing (first run only, ~30 seconds)
 # You'll see: "📊 Database not found. Parsing DAT files..."
